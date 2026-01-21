@@ -1,0 +1,21 @@
+# Environnements virtuels
+env/
+venv/
+.venv/
+
+# Données locales
+data/CVs/
+data/CVs/*.pdf
+data/CVs/**/*.pdf
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Fichiers Streamlit
+.streamlit/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
