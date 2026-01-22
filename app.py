@@ -587,7 +587,7 @@ df["Priorite_RH"] = df["Cluster_KMeans"].apply(
 # ---------------------------------------------------
 # IA GLOBAL
 # ---------------------------------------------------
-if st.button("🔍 Lancer l’analyse IA des candidatures", use_container_width=True):
+if st.button("Lancer l’analyse IA des candidatures", use_container_width=True):
     X_scaled = scaler.transform(df_features_clf)
     preds = model.predict(X_scaled)
     probas = model.predict_proba(X_scaled)
@@ -708,7 +708,7 @@ with st.expander("📂 Ouvrir la synthèse graphique", expanded=False):
 # FILTRE RH – PRIORITÉ MÉTIER
 # ---------------------------------------------------
 priority_filter = st.selectbox(
-    "🎯 Filtrer par priorité RH",
+    "Filtrer par priorité RH",
     ["Toutes", "Haute", "Moyenne", "Faible", "Très faible", "Exclusion", "Manuel"]
 )
 
