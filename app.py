@@ -551,7 +551,14 @@ def extract_features(row):
 df_features = pd.DataFrame(df.apply(extract_features, axis=1).tolist())
 
 df_features_clf = df_features[FEATURES]
+# --- Alignement sécurisé des features KMeans ---
+missing_cols = [c for c in KMEANS_FEATURES if c not in df_features.columns]
+
+for col in missing_cols:
+    df_features[col] = 0
+
 df_features_kmeans = df_features[KMEANS_FEATURES]
+
 
 # ---------------------------------------------------
 # APPLICATION DU CLUSTERING KMEANS (UNE FOIS)
