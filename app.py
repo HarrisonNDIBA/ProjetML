@@ -345,7 +345,7 @@ st.markdown("<div class='subtitle'>Analyse intelligente des candidatures Data</d
 # ---------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 
-DATA_PATH = BASE_DIR / "data/processed/dataset_cv_clean.xlsx"
+DATA_PATH = BASE_DIR / "data/dataset_cv_clean.xlsx"
 MODEL_PATH = BASE_DIR / "models/random_forest_best.joblib"
 SCALER_PATH = BASE_DIR / "models/standard_scaler.joblib"
 
