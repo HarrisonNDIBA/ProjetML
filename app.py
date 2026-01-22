@@ -346,8 +346,12 @@ st.markdown("<div class='subtitle'>Analyse intelligente des candidatures Data</d
 BASE_DIR = Path(__file__).resolve().parent
 
 DATA_PATH = BASE_DIR / "data/dataset_cv_clean.xlsx"
-MODEL_PATH = BASE_DIR / "models/random_forest_best.joblib"
-SCALER_PATH = BASE_DIR / "models/standard_scaler.joblib"
+MODEL_PATH = BASE_DIR / "models/knn_classification_secteur.pkl"
+SCALER_PATH = BASE_DIR / "models/scaler_classification_secteur.pkl"
+SECTEUR_MAPPING_PATH = BASE_DIR / "models/secteur_mapping.pkl"
+KNN_CONFIG_PATH = BASE_DIR / "models/knn_classification_secteur_config.pkl"
+
+
 
 KMEANS_MODEL_PATH = BASE_DIR / "models/kmeans_clustering_model.pkl"
 KMEANS_SCALER_PATH = BASE_DIR / "models/kmeans_clustering_scaler.pkl"
@@ -358,6 +362,8 @@ for p in [
     DATA_PATH,
     MODEL_PATH,
     SCALER_PATH,
+    KNN_CONFIG_PATH,
+    SECTEUR_MAPPING_PATH,
     KMEANS_MODEL_PATH,
     KMEANS_SCALER_PATH,
     KMEANS_FEATURES_PATH,
@@ -375,15 +381,30 @@ def load_data():
 def load_models():
     model = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH)
+
+    knn_config = joblib.load(KNN_CONFIG_PATH)
+    FEATURES = knn_config["features"]
+
+    secteur_mapping = joblib.load(SECTEUR_MAPPING_PATH)
+
     kmeans_model = joblib.load(KMEANS_MODEL_PATH)
     kmeans_scaler = joblib.load(KMEANS_SCALER_PATH)
-    kmeans_features = joblib.load(KMEANS_FEATURES_PATH)
-    return model, scaler, kmeans_model, kmeans_scaler, kmeans_features
+    KMEANS_FEATURES = joblib.load(KMEANS_FEATURES_PATH)
+
+    return model, scaler, FEATURES, secteur_mapping, kmeans_model, kmeans_scaler, KMEANS_FEATURES
+
+
+
+
+
 
 
 
 df = load_data()
-model, scaler, kmeans_model, kmeans_scaler, KMEANS_FEATURES = load_models()
+model, scaler, FEATURES, secteur_mapping, kmeans_model, kmeans_scaler, KMEANS_FEATURES = load_models()
+
+
+
 
 st.session_state.setdefault(
     "profil_status",
@@ -508,8 +529,6 @@ afin d’aider les équipes RH à prendre des décisions plus rapides, plus just
 
 
 
-FEATURES = scaler.feature_names_in_.tolist()
-
 # ---------------------------------------------------
 # FEATURE ENGINEERING (INCHANGÉ)
 # ---------------------------------------------------
@@ -530,11 +549,15 @@ def extract_features(row):
     }
 
 df_features = pd.DataFrame(df.apply(extract_features, axis=1).tolist())
-df_features = df_features[FEATURES]
+
+df_features_clf = df_features[FEATURES]
+df_features_kmeans = df_features[KMEANS_FEATURES]
+
 # ---------------------------------------------------
 # APPLICATION DU CLUSTERING KMEANS (UNE FOIS)
 # ---------------------------------------------------
-X_kmeans = df_features.copy()
+X_kmeans = df_features_kmeans.copy()
+
 
 for col in KMEANS_FEATURES:
     if col not in X_kmeans.columns:
@@ -558,15 +581,18 @@ df["Priorite_RH"] = df["Cluster_KMeans"].apply(
 # IA GLOBAL
 # ---------------------------------------------------
 if st.button("🔍 Lancer l’analyse IA des candidatures", use_container_width=True):
-    X_scaled = scaler.transform(df_features)
+    X_scaled = scaler.transform(df_features_clf)
     preds = model.predict(X_scaled)
     probas = model.predict_proba(X_scaled)
 
     for i, cid in enumerate(df["ID"]):
+        secteur_label = secteur_mapping.get(preds[i], str(preds[i]))
+
         st.session_state.ai_results[cid] = {
-            "secteur": preds[i],
+            "secteur": secteur_label,
             "confiance": float(probas[i].max())
         }
+
 
     st.success("Analyse IA réalisée avec succès")
     
