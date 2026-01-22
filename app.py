@@ -4,6 +4,8 @@ import re
 import joblib
 from pathlib import Path
 import math
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 plt.rcParams.update({
@@ -341,28 +343,57 @@ st.markdown("<div class='subtitle'>Analyse intelligente des candidatures Data</d
 # ---------------------------------------------------
 # DATA
 # ---------------------------------------------------
-DATA_PATH = Path(r"C:\Users\harri\Downloads\Projet_CV_ML\Projet_CV_ML\data\processed\dataset_cv_clean.xlsx")
-MODEL_PATH = Path(r"C:\Users\harri\Desktop\IT_MelvineYnov\Projet_CV_ML\Projet_CV_ML\notebooks\models\random_forest_best.joblib")
-SCALER_PATH = Path(r"C:\Users\harri\Desktop\IT_MelvineYnov\Projet_CV_ML\Projet_CV_ML\notebooks\models\standard_scaler.joblib")
+BASE_DIR = Path(__file__).resolve().parent
 
-df = pd.read_excel(DATA_PATH)
+DATA_PATH = BASE_DIR / "data/processed/dataset_cv_clean.xlsx"
+MODEL_PATH = BASE_DIR / "models/random_forest_best.joblib"
+SCALER_PATH = BASE_DIR / "models/standard_scaler.joblib"
 
-# ---------------------------------------------------
-# KMEANS – SEGMENTATION MÉTIER (SAFE)
-# ---------------------------------------------------
-KMEANS_MODEL_PATH = Path(
-    r"C:\Users\harri\Downloads\Projet_CV_ML\Projet_CV_ML\models\kmeans_clustering_model.pkl"
-)
-KMEANS_SCALER_PATH = Path(
-    r"C:\Users\harri\Downloads\Projet_CV_ML\Projet_CV_ML\models\kmeans_clustering_scaler.pkl"
-)
-KMEANS_FEATURES_PATH = Path(
-    r"C:\Users\harri\Downloads\Projet_CV_ML\Projet_CV_ML\models\kmeans_clustering_features.pkl"
-)
+KMEANS_MODEL_PATH = BASE_DIR / "models/kmeans_clustering_model.pkl"
+KMEANS_SCALER_PATH = BASE_DIR / "models/kmeans_clustering_scaler.pkl"
+KMEANS_FEATURES_PATH = BASE_DIR / "models/kmeans_clustering_features.pkl"
 
-kmeans_model = joblib.load(KMEANS_MODEL_PATH)
-kmeans_scaler = joblib.load(KMEANS_SCALER_PATH)
-KMEANS_FEATURES = joblib.load(KMEANS_FEATURES_PATH)
+
+for p in [
+    DATA_PATH,
+    MODEL_PATH,
+    SCALER_PATH,
+    KMEANS_MODEL_PATH,
+    KMEANS_SCALER_PATH,
+    KMEANS_FEATURES_PATH,
+]:
+    if not p.exists():
+        st.error(f"Fichier manquant : {p}")
+        st.stop()
+
+
+@st.cache_data
+def load_data():
+    return pd.read_excel(DATA_PATH)
+
+@st.cache_resource
+def load_models():
+    model = joblib.load(MODEL_PATH)
+    scaler = joblib.load(SCALER_PATH)
+    kmeans_model = joblib.load(KMEANS_MODEL_PATH)
+    kmeans_scaler = joblib.load(KMEANS_SCALER_PATH)
+    kmeans_features = joblib.load(KMEANS_FEATURES_PATH)
+    return model, scaler, kmeans_model, kmeans_scaler, kmeans_features
+
+
+
+df = load_data()
+model, scaler, kmeans_model, kmeans_scaler, KMEANS_FEATURES = load_models()
+
+st.session_state.setdefault(
+    "profil_status",
+    {r["ID"]: "Not Processed" for _, r in df.iterrows()}
+)
+st.session_state.setdefault("decision", {})
+st.session_state.setdefault("ai_results", {})
+st.session_state.setdefault("page", 1)
+
+
 
 # ---------------------------------------------------
 # INTERPRÉTATION MÉTIER DES CLUSTERS
@@ -378,16 +409,6 @@ CLUSTER_LOGIC = {
     4: {"label": "⚠️ Verbeux / peu qualifié", "priority": "Manuel", "color": "#DAA520"},
 }
 
-
-
-
-# ---------------------------------------------------
-# SESSION STATE
-# ---------------------------------------------------
-st.session_state.setdefault("profil_status", {r["ID"]: "Not Processed" for _, r in df.iterrows()})
-st.session_state.setdefault("decision", {})
-st.session_state.setdefault("ai_results", {})
-st.session_state.setdefault("page", 1)
 
 
 # ---------------------------------------------------
@@ -487,16 +508,6 @@ afin d’aider les équipes RH à prendre des décisions plus rapides, plus just
 
 
 
-# ---------------------------------------------------
-# DATA & MODEL (JOBLIB)
-# ---------------------------------------------------
-DATA_PATH = Path(r"C:\Users\harri\Downloads\Projet_CV_ML\Projet_CV_ML\data\processed\dataset_cv_clean.xlsx")
-MODEL_PATH = Path(r"C:\Users\harri\Desktop\IT_MelvineYnov\Projet_CV_ML\Projet_CV_ML\notebooks\models\random_forest_best.joblib")
-SCALER_PATH = Path(r"C:\Users\harri\Desktop\IT_MelvineYnov\Projet_CV_ML\Projet_CV_ML\notebooks\models\standard_scaler.joblib")
-
-df = pd.read_excel(DATA_PATH)
-model = joblib.load(MODEL_PATH)
-scaler = joblib.load(SCALER_PATH)
 FEATURES = scaler.feature_names_in_.tolist()
 
 # ---------------------------------------------------
@@ -542,14 +553,6 @@ df["Priorite_RH"] = df["Cluster_KMeans"].apply(
     lambda c: CLUSTER_LOGIC.get(c, {}).get("priority", "Standard")
 )
 
-
-# ---------------------------------------------------
-# SESSION STATE
-# ---------------------------------------------------
-st.session_state.setdefault("profil_status", {r["ID"]: "Not Processed" for _, r in df.iterrows()})
-st.session_state.setdefault("decision", {})
-st.session_state.setdefault("ai_results", {})
-st.session_state.setdefault("page", 1)
 
 # ---------------------------------------------------
 # IA GLOBAL
@@ -676,6 +679,11 @@ priority_filter = st.selectbox(
     ["Toutes", "Haute", "Moyenne", "Faible", "Très faible", "Exclusion", "Manuel"]
 )
 
+if st.session_state.get("last_filter") != priority_filter:
+    st.session_state.page = 1
+    st.session_state.last_filter = priority_filter
+
+
 df_view = df.copy()
 
 if priority_filter != "Toutes":
@@ -687,7 +695,7 @@ if priority_filter != "Toutes":
 # PAGINATION
 # ---------------------------------------------------
 PER_PAGE = 10
-total_pages = math.ceil(len(df) / PER_PAGE)
+total_pages = max(1, math.ceil(len(df_view) / PER_PAGE))
 start = (st.session_state.page - 1) * PER_PAGE
 df_page = df_view.iloc[start:start + PER_PAGE]
 
